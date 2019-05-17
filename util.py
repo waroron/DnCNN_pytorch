@@ -13,7 +13,8 @@ def load_orgimgs(path='./BSDS200/'):
     imgs = []
     for img_name in imgs_name:
         img_path = os.path.join(path, img_name)
-        img_bin = cv2.imread(img_path)
+        img_bin = Image.open(img_path)
+        # img_bin.show()
 
         imgs.append(img_bin)
 
@@ -49,12 +50,13 @@ def get_crop_datasets(path='./BSDS200/', width=180, height=180, times=2):
     img_set = load_orgimgs(path=path)
     crop = []
     for img in img_set:
-        crop_widths = np.random.randint(0, img.shape[1] - width, times)
-        crop_heights = np.random.randint(0, img.shape[0] - height, times)
+        crop_widths = np.random.randint(0, img.width - width, times)
+        crop_heights = np.random.randint(0, img.height - height, times)
 
         for crop_width, crop_height in zip(crop_widths, crop_heights):
-            crop_img = img[crop_height: crop_height + height, crop_width: crop_width + width]
-            crop.append(crop_img)
+            np_img = np.array(img)
+            crop_img = np_img[crop_height: crop_height + height, crop_width: crop_width + width]
+            crop.append(Image.fromarray(crop_img))
 
     return crop
 
@@ -62,7 +64,7 @@ def get_crop_datasets(path='./BSDS200/', width=180, height=180, times=2):
 def resize_imgset(imgs, width, height):
     resized_imgs = []
     for img in imgs:
-        resized = cv2.resize(img, (width, height))
+        resized = img.resize((width, height))
         resized_imgs.append(resized)
 
     return resized_imgs
@@ -73,12 +75,14 @@ def generate_resized_dataset(dataset_path, width, height):
 
 
 def noised_RVIN(img, p=0.1):
-    noised_img = img.copy()
-    noised_p = np.random.uniform(0, 1, (img.shape[0], img.shape[1], img.shape[2]))
+    np_img = np.array(img)
+    noised_img = np_img.copy()
+    noised_p = np.random.uniform(0, 1, noised_img.shape)
     noised_positions = np.where(noised_p < p)
     noise_values = np.random.randint(0, 255, len(noised_positions[0]))
 
     noised_img[noised_positions] = noise_values
+    noised_img = Image.fromarray(noised_img)
 
     return noised_img
 
@@ -89,6 +93,7 @@ if __name__ == '__main__':
     for img in imgs:
         noised = noised_RVIN(img, 0.2)
 
+    noised.show()
     end = time.time()
 
     print('{} times noising time: {}'.format(len(imgs), end - start))

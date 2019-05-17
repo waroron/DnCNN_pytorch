@@ -7,6 +7,7 @@ from util import get_crop_datasets, noised_RVIN, cv2pil, pil2cv
 import torch
 import numpy as np
 import torchvision.transforms as transforms
+from PIL import Image
 
 
 class DnCNN(nn.Module):
@@ -55,11 +56,8 @@ class DnCNN(nn.Module):
         """
         output = self.forward(noised_img)
         tmp = F.relu(noised_img - output) * 255.0
-        trans = transforms.ToPILImage(mode=3)
-        denoised_img = trans(tmp)
-        denoised_img = pil2cv(denoised_img)
-        # denoised_img.show()
-        return denoised_img
+        trans = tmp
+        return trans
 
 
 class DenoisingDatasets(Dataset):
@@ -71,12 +69,12 @@ class DenoisingDatasets(Dataset):
         noised_set = []
         for img in imgs:
             noised = noised_RVIN(img)
-            noised_set.append(self.data_transform(cv2pil(noised)))
+            noised_set.append(self.data_transform(noised))
 
         # convert cv2 image to Pillow img
         org_imgs = []
         for img in imgs:
-            org_imgs.append(self.data_transform(cv2pil(img)))
+            org_imgs.append(self.data_transform(img))
 
         self.org = org_imgs
         self.noised = noised_set
