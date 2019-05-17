@@ -19,7 +19,7 @@ def evaluate(model, test_set, device):
     print('test loss: {}'.format(sum_loss / len(test_set)))
 
 
-if __name__ == '__main__':
+def train():
     MODEL_PATH = 'model.pth'
     transform = transforms.Compose(
         [transforms.ToTensor()])
@@ -63,3 +63,7 @@ if __name__ == '__main__':
             num, total_loss / len(dataloader)))
         evaluate(model, testloader, device)
         torch.save(model, MODEL_PATH)
+
+
+if __name__ == '__main__':
+    pass
