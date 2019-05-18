@@ -98,7 +98,7 @@ def append_csv_from_dict(dir, csv_path, dict_data):
     append_col = []
 
     for column in columns:
-        append_col.extend(dict_data[column])
+        append_col.append(dict_data[column])
 
     df = pd.DataFrame([append_col], columns=columns)
     try:
