@@ -48,16 +48,14 @@ class DnCNN(nn.Module):
 
     def denoise(self, noised_img):
         """
-        cv2形式の画像をとり，pillow形式に変換し，学習時と同様のtransformを適用し，
-        順伝搬させる．
-        その後，画像形式に沿うようにreshapeしcv2形式に変換する．
+        get normalized and corrupted image, output denoised image of type Tensor
+        It is necessary to convert Tensor to PIL with ToPILImage for enable to show the denoised image.
         :param noised_img:
         :return:
         """
         output = self.forward(noised_img)
-        tmp = F.relu(noised_img - output) * 255.0
-        trans = tmp
-        return trans
+        tmp = F.relu(noised_img - output)
+        return tmp
 
 
 class DenoisingDatasets(Dataset):
