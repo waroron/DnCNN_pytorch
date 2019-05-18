@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch
 import torchvision.transforms as transforms
+from util import append_csv_from_dict, save_torch_model
+import os
 
 
 def evaluate(model, test_set, device):
@@ -12,24 +14,29 @@ def evaluate(model, test_set, device):
     for num, (image, org) in enumerate(test_set):
         image = image.to(device)
         org = org.to(device)
-        output = model.denoise(image)
+        output = model(image)
         loss = criterion(output, image.sub(org))
         sum_loss += loss.data.cpu().numpy()
 
-    print('test loss: {}'.format(sum_loss / len(test_set)))
+    return sum_loss / len(test_set)
 
 
-def train():
+def train(experimental_name, base_dir, epoch):
     MODEL_PATH = 'model.pth'
+    DATASET = 'BSDS200/'
+    TESTSET = 'Set5/'
+    csv_name = 'epoch_data.csv'
+    dataset_dir = os.path.join(base_dir, DATASET)
+    testset_dir = os.path.join(base_dir, TESTSET)
     transform = transforms.Compose(
         [transforms.ToTensor()])
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
-    epoch = 100
     model = DnCNN().to(device)
-    dataset = DenoisingDatasets(dir='BSDS200/', data_transform=transform)
-    test_set = DenoisingDatasets(dir='Set5/', data_transform=transform)
+    
+    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform)
+    test_set = DenoisingDatasets(dir=testset_dir, data_transform=transform)
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=2,
@@ -44,9 +51,13 @@ def train():
 
     optimizer = Adam(model.parameters())
     criterion = nn.MSELoss()
-    minibatch_time = 100
+    experimental_dir = os.path.join(base_dir, experimental_name)
+    
+    if not os.path.isdir(experimental_dir):
+        print('make dir {}'.format(experimental_dir))
+        os.mkdir(experimental_dir)
 
-    for num in range(minibatch_time):
+    for num in range(epoch):
         total_loss = 0
         for batch_idx, (image, label) in enumerate(dataloader):
             image = image.to(device)
@@ -59,10 +70,18 @@ def train():
             loss.backward()
             optimizer.step()
 
-        print('Train Epoch: {} \tLoss: {:.6f}'.format(
-            num, total_loss / len(dataloader)))
-        evaluate(model, testloader, device)
-        torch.save(model, MODEL_PATH)
+        total_loss /= len(dataloader)
+        test_loss = evaluate(model, testloader, device)
+        
+        data_dict = {'num_epoch': num,
+                     'training_loss': total_loss,
+                     'test_loss': test_loss}
+        print('Train Epoch: {} \tLoss: {:.6f} \tTest Loss: {:.6f}'.format(
+            num, total_loss, test_loss))
+
+        append_csv_from_dict(experimental_dir, csv_name, data_dict)
+        epoch_dir = os.path.join(experimental_dir, str(num))
+        save_torch_model(epoch_dir, MODEL_PATH, model)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,8 @@ import os
 import numpy as np
 import time
 from PIL import Image
+import torch
+import pandas as pd
 
 
 def load_orgimgs(path='./BSDS200/'):
@@ -85,6 +87,37 @@ def noised_RVIN(img, p=0.1):
     noised_img = Image.fromarray(noised_img)
 
     return noised_img
+
+
+def append_csv_from_dict(dir, csv_path, dict_data):
+    if not os.path.isdir(dir):
+        print('make {} dir'.format(dir))
+        os.mkdir(dir)
+    csv_path = os.path.join(dir, csv_path)
+    columns = ['num_epoch', 'training_loss', 'test_loss']
+    append_col = []
+
+    for column in columns:
+        append_col.extend(dict_data[column])
+
+    df = pd.DataFrame([append_col], columns=columns)
+    try:
+        if os.path.isfile(csv_path):
+            existed_csv = pd.read_csv(csv_path, encoding='utf_8_sig').iloc[:, 1:]
+            existed_csv = pd.concat([existed_csv, df])
+            existed_csv.to_csv(csv_path, encoding='utf_8_sig')
+            return True
+        df.to_csv(csv_path, encoding='utf_8_sig')
+    except:
+        return False
+
+
+def save_torch_model(dir, name, model):
+    if not os.path.isdir(dir):
+        print('make dir {}'.format(dir))
+        os.mkdir(dir)
+
+    torch.save(model, os.path.join(dir, name))
 
 
 if __name__ == '__main__':
