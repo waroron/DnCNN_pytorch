@@ -4,7 +4,22 @@ import numpy as np
 import time
 from PIL import Image
 import torch
+import torch.nn as nn
 import pandas as pd
+
+
+class MyModel(nn.Module):
+    def __init__(self):
+        super(MyModel, self).__init__()
+
+    def save(self, dir, name):
+        if not os.path.isdir(dir):
+            print('make dir {}'.format(dir))
+            os.mkdir(dir)
+
+        path = os.path.join(dir, name)
+        torch.save(self.state_dict(), path)
+        print('save model {}'.format(path))
 
 
 def load_orgimgs(path='./BSDS200/'):
@@ -117,7 +132,7 @@ def save_torch_model(dir, name, model):
         print('make dir {}'.format(dir))
         os.mkdir(dir)
 
-    torch.save(model, os.path.join(dir, name))
+    torch.save(model.state_dict(), os.path.join(dir, name))
 
 
 if __name__ == '__main__':

@@ -45,15 +45,15 @@ def denoise_test(model, test_set, device):
             score = psnr(org, img)
             # print(score)
             sum_loss += score
-            denoised_fig.append(denoised)
+            denoised_fig.append(img)
         print('Test PSNR: {:.6f}'.format(sum_loss / len(denoised_fig)))
         return denoised_fig, sum_loss / len(denoised_fig)
 
 
-def train(experimental_name, base_dir, epoch, dev):
+def train(experimental_name, base_dir, epoch, dev, load_model=None):
     MODEL_PATH = 'model.pth'
     DATASET = 'BSDS200/'
-    TESTSET = 'Set14/'
+    TESTSET = 'Set5/'
     csv_name = 'epoch_data.csv'
     dataset_dir = os.path.join(base_dir, DATASET)
     testset_dir = os.path.join(base_dir, TESTSET)
@@ -62,21 +62,14 @@ def train(experimental_name, base_dir, epoch, dev):
 
     device = torch.device(dev if torch.cuda.is_available() else "cpu")
     print(device)
-    model = DnCNN().to(device)
-    
-    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform)
-    test_set = DenoisingDatasets(dir=dataset_dir, data_transform=transform)
-    dataloader = DataLoader(
-        dataset=dataset,
-        batch_size=2,
-        shuffle=True
-    )
-
-    testloader = DataLoader(
-        dataset=test_set,
-        batch_size=5,
-        shuffle=False
-    )
+    if load_model:
+        model = DnCNN()
+        model.load_state_dict(torch.load(load_model))
+        model = model.to(device)
+        print('load model {}.'.format(load_model))
+    else:
+        print('Not found load model.')
+        model = DnCNN().to(device)
 
     optimizer = Adam(model.parameters())
     criterion = nn.MSELoss()
@@ -86,9 +79,24 @@ def train(experimental_name, base_dir, epoch, dev):
         print('make dir {}'.format(experimental_dir))
         os.mkdir(experimental_dir)
 
-    for num in range(epoch):
+    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform)
+    test_set = DenoisingDatasets(dir=testset_dir, data_transform=transform)
+    dataloader = DataLoader(
+        dataset=dataset,
+        batch_size=40,
+        shuffle=True
+    )
+
+    testloader = DataLoader(
+        dataset=test_set,
+        batch_size=5,
+        shuffle=False
+    )
+
+    for num in range(epoch + 1):
         total_loss = 0
         calc_time = 0
+        test_loss = 0
         for batch_idx, (image, label) in enumerate(dataloader):
             image = image.to(device)
             label = label.to(device)
@@ -103,9 +111,9 @@ def train(experimental_name, base_dir, epoch, dev):
             calc_time += (end - start)
             optimizer.step()
 
-        total_loss /= len(dataloader)
-        calc_time /= len(dataloader)
-        test_loss = evaluate(model, testloader, device)
+            total_loss /= len(dataloader)
+            calc_time /= len(dataloader)
+            test_loss = evaluate(model, testloader, device)
         
         data_dict = {'num_epoch': num,
                      'training_loss': total_loss,
@@ -122,6 +130,18 @@ def train(experimental_name, base_dir, epoch, dev):
             for num, denoised in enumerate(denoised_imgs):
                 denoised_name = os.path.join(epoch_dir, 'denoised_{}.png'.format(num))
                 denoised.save(denoised_name)
+    epoch_dir = os.path.join(experimental_dir, str(epoch))
+    model_path = os.path.join(epoch_dir, MODEL_PATH)
+    return model_path
+
+
+def train_mix_dataset(experimental_name, base_dir, epoch, times, dev):
+    last_model_path = ''
+    for num in range(times):
+        if num == 0:
+            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev)
+        else:
+            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, last_model_path)
 
 
 if __name__ == '__main__':

@@ -3,11 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import cv2
-from util import get_crop_datasets, noised_RVIN, cv2pil, pil2cv
+from util import get_crop_datasets, noised_RVIN, cv2pil, pil2cv, MyModel
 import torch
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
+
+
+class DenoisingModel(MyModel):
+    def __init__(self):
+        super(DenoisingModel, self).__init__()
+
+    def denoise(self, img):
+        trans = transforms.ToPILImage()
 
 
 class DnCNN(nn.Module):
