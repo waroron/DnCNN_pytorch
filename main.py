@@ -79,11 +79,11 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
         print('make dir {}'.format(experimental_dir))
         os.mkdir(experimental_dir)
 
-    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform)
-    test_set = DenoisingDatasets(dir=testset_dir, data_transform=transform)
+    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform, noise_p=[0.1])
+    test_set = DenoisingDatasets(dir=testset_dir, data_transform=transform, noise_p=[0.1])
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=40,
+        batch_size=5,
         shuffle=True
     )
 
@@ -92,6 +92,7 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
         batch_size=5,
         shuffle=False
     )
+    print('All datasets have been loaded.')
 
     for num in range(epoch + 1):
         total_loss = 0

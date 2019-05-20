@@ -22,7 +22,7 @@ class MyModel(nn.Module):
         print('save model {}'.format(path))
 
 
-def load_orgimgs(path='./BSDS200/'):
+def load_orgimgs(path='./BSDS200/', shape=None):
     if os.path.isdir(path) is None:
         exit('{} dir is not found.'.format(path))
 
@@ -32,6 +32,8 @@ def load_orgimgs(path='./BSDS200/'):
         img_path = os.path.join(path, img_name)
         img_bin = Image.open(img_path)
         # img_bin.show()
+        if shape:
+            img_bin = img_bin.resize(shape)
 
         imgs.append(img_bin)
 
@@ -91,17 +93,24 @@ def generate_resized_dataset(dataset_path, width, height):
     pass
 
 
-def noised_RVIN(img, p=0.1):
+def noised_RVIN(img, noised_p):
     np_img = np.array(img)
-    noised_img = np_img.copy()
-    noised_p = np.random.uniform(0, 1, noised_img.shape)
-    noised_positions = np.where(noised_p < p)
-    noise_values = np.random.randint(0, 255, len(noised_positions[0]))
+    noised_imgs = []
+    org_imgs = []
 
-    noised_img[noised_positions] = noise_values
-    noised_img = Image.fromarray(noised_img)
+    for p in noised_p:
+        noised_img = np_img.copy()
+        noised_p = np.random.uniform(0, 1, noised_img.shape)
+        noised_positions = np.where(noised_p < p)
+        noise_values = np.random.randint(0, 255, len(noised_positions[0]))
 
-    return noised_img
+        noised_img[noised_positions] = noise_values
+        noised_img = Image.fromarray(noised_img)
+
+        noised_imgs.append(noised_img)
+        org_imgs.append(img)
+
+    return noised_imgs, org_imgs
 
 
 def append_csv_from_dict(dir, csv_path, dict_data):
@@ -133,6 +142,8 @@ def save_torch_model(dir, name, model):
         os.mkdir(dir)
 
     torch.save(model.state_dict(), os.path.join(dir, name))
+
+
 
 
 if __name__ == '__main__':
