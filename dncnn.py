@@ -8,6 +8,7 @@ import torch
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
+import os
 
 
 class DenoisingModel(MyModel):
@@ -96,8 +97,8 @@ class DenoisingDatasets(Dataset):
             noised_imgs, org_imgs = noised_RVIN(img, noised_p=self.noise_p)
 
             for noised, org in zip(noised_imgs, org_imgs):
-                noised_set.extend(self.data_transform(noised))
-                org_set.extend(self.data_transform(org))
+                noised_set.append(self.data_transform(noised))
+                org_set.append(self.data_transform(org))
 
         # convert cv2 image to Pillow img
         # org_imgs = []
@@ -122,22 +123,41 @@ class DenoisingDatasets(Dataset):
 
 
 class ImageDatasets(Dataset):
-    def __init__(self, dir, data_transform, shape=None):
-        imgs = load_orgimgs(dir)
+    """
+    util内のgenerate_testsetみたいのを使ってることを想定
+    testset
+        - /org/  : 原画像
+        - /p_0.1/ : 0.1のRVINが重畳
+
+        みたいな感じで保存されているはず
+    """
+    def __init__(self, dir, data_transform, noise_p, shape=None):
+        self.dir = dir
+        self.org_dir = os.path.join(dir, 'org')
+        self.noise_p = noise_p
         self.data_transform = data_transform
 
-        noised_set = []
-        for img in imgs:
-            noised = noised_RVIN(img)
-            noised_set.append(self.data_transform(noised))
+        noised_set, org_set = self.load_denoising_datasets()
 
-        # convert cv2 image to Pillow img
-        org_imgs = []
-        for img in imgs:
-            org_imgs.append(self.data_transform(img))
-
-        self.org = org_imgs
+        self.org = org_set
         self.noised = noised_set
+
+    def load_denoising_datasets(self):
+        num_imgs = len(os.listdir(self.org_dir))
+        org_set = []
+        noised_set = []
+        for num in range(num_imgs):
+            org_path = os.path.join(self.org_dir, 'img_{}.png'.format(num))
+            org_img = self.data_transform(Image.open(org_path))
+
+            for p in self.noise_p:
+                noise_path = os.path.join(self.dir, 'p_{}'.format(p), 'img_{}.png'.format(num))
+                noised_img = self.data_transform(Image.open(noise_path))
+
+                org_set.append(org_img)
+                noised_set.append(noised_img)
+
+        return noised_set, org_set
 
     def __len__(self):
         return len(self.org)

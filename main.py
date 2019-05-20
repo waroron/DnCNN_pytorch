@@ -1,4 +1,4 @@
-from dncnn import DnCNN, DenoisingDatasets
+from dncnn import DnCNN, DenoisingDatasets, ImageDatasets
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 import torch.nn as nn
@@ -53,7 +53,7 @@ def denoise_test(model, test_set, device):
 def train(experimental_name, base_dir, epoch, dev, load_model=None):
     MODEL_PATH = 'model.pth'
     DATASET = 'BSDS200/'
-    TESTSET = 'Set5/'
+    TESTSET = 'Urban100_test/'
     csv_name = 'epoch_data.csv'
     dataset_dir = os.path.join(base_dir, DATASET)
     testset_dir = os.path.join(base_dir, TESTSET)
@@ -80,7 +80,7 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
         os.mkdir(experimental_dir)
 
     dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform, noise_p=[0.1])
-    test_set = DenoisingDatasets(dir=testset_dir, data_transform=transform, noise_p=[0.1])
+    test_set = ImageDatasets(dir=testset_dir, data_transform=transform, noise_p=[0.1])
     dataloader = DataLoader(
         dataset=dataset,
         batch_size=5,

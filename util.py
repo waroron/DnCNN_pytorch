@@ -144,18 +144,49 @@ def save_torch_model(dir, name, model):
     torch.save(model.state_dict(), os.path.join(dir, name))
 
 
+def generate_denoising_testset(org_dir, save_dir, noise_p, shape):
+    orgimgs_set = load_orgimgs(path=org_dir, shape=shape)
+    save_org_dir = os.path.join(save_dir, 'org')
+
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+        print('make dir {}'.format(save_dir))
+
+    if not os.path.isdir(save_org_dir):
+        os.mkdir(save_org_dir)
+        print('make dir {}'.format(save_org_dir))
+
+    for p in noise_p:
+        save_noise_dir = os.path.join(save_dir, 'p_{}'.format(p))
+
+        if not os.path.isdir(save_noise_dir):
+            os.mkdir(save_noise_dir)
+            print('make dir {}'.format(save_noise_dir))
+
+        for num, org in enumerate(orgimgs_set):
+                org_path = os.path.join(save_org_dir, 'img_{}.png'.format(num))
+                noise_path = os.path.join(save_noise_dir, 'img_{}.png'.format(num))
+
+                noised_img, _ = noised_RVIN(org, noised_p=[p])
+
+                if not os.path.isfile(org_path):
+                    org.save(org_path)
+                noised_img[0].save(noise_path)
+
+                print('save {}'.format(org_path))
 
 
 if __name__ == '__main__':
-    start = time.time()
-    imgs = load_orgimgs()
-    for img in imgs:
-        noised = noised_RVIN(img, 0.2)
-
-    noised.show()
-    end = time.time()
-
-    print('{} times noising time: {}'.format(len(imgs), end - start))
+    generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
+    # start = time.time()
+    # imgs = load_orgimgs()
+    # for img in imgs:
+    #     noised = noised_RVIN(img, 0.2)
+    #
+    # noised.show()
+    # end = time.time()
+    #
+    # print('{} times noising time: {}'.format(len(imgs), end - start))
     # cv2.imshow('org', imgs[0])
     # cv2.imshow('noised', noised)
 
