@@ -53,12 +53,13 @@ class DnCNN(DenoisingModel):
         DnCNN-S model depth is set as 17.
 
     """
-    def __init__(self):
+    def __init__(self, filter_size=3):
         super(DnCNN, self).__init__()
-        self.first = nn.Conv2d(3, 64, 3, padding=1)
-        self.hidden_conv = nn.ModuleList([nn.Conv2d(64, 64, 3, padding=1) for n in range(15)])
+        same_padding = int((filter_size - 1) / 2.0)
+        self.first = nn.Conv2d(3, 64, filter_size, padding=same_padding)
+        self.hidden_conv = nn.ModuleList([nn.Conv2d(64, 64, filter_size, padding=same_padding) for n in range(15)])
         self.hidden_bn = nn.ModuleList([nn.BatchNorm2d(64) for n in range(15)])
-        self.last = nn.Conv2d(64, 3, 3, padding=1)
+        self.last = nn.Conv2d(64, 3, filter_size, padding=same_padding)
 
     def forward(self, x):
         x = F.relu(self.first(x))

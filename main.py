@@ -46,11 +46,11 @@ def denoise_test(model, test_set, device):
             # print(score)
             sum_loss += score
             denoised_fig.append(img)
-        print('Test PSNR: {:.6f}'.format(sum_loss / len(denoised_fig)))
-        return denoised_fig, sum_loss / len(denoised_fig)
+    print('Test PSNR: {:.6f}'.format(sum_loss / len(denoised_fig)))
+    return denoised_fig, sum_loss / len(denoised_fig)
 
 
-def train(experimental_name, base_dir, epoch, dev, load_model=None):
+def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None):
     MODEL_PATH = 'model.pth'
     DATASET = 'BSDS200/'
     TESTSET = 'Urban100_test/'
@@ -63,13 +63,13 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
     device = torch.device(dev if torch.cuda.is_available() else "cpu")
     print(device)
     if load_model:
-        model = DnCNN()
+        model = DnCNN(filter_size=filter_size)
         model.load_state_dict(torch.load(load_model))
         model = model.to(device)
         print('load model {}.'.format(load_model))
     else:
         print('Not found load model.')
-        model = DnCNN().to(device)
+        model = DnCNN(filter_size=filter_size).to(device)
 
     optimizer = Adam(model.parameters())
     criterion = nn.MSELoss()
@@ -79,11 +79,11 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
         print('make dir {}'.format(experimental_dir))
         os.mkdir(experimental_dir)
 
-    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform, noise_p=[0.1])
-    test_set = ImageDatasets(dir=testset_dir, data_transform=transform, noise_p=[0.1])
+    dataset = DenoisingDatasets(dir=dataset_dir, data_transform=transform, noise_p=training_p)
+    test_set = ImageDatasets(dir=testset_dir, data_transform=transform, noise_p=test_p)
     dataloader = DataLoader(
         dataset=dataset,
-        batch_size=5,
+        batch_size=batch_size,
         shuffle=True
     )
 
@@ -106,7 +106,7 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
             start = time.time()
             output = model(image)
             loss = criterion(output, image.sub(label))
-            total_loss += loss.data.cpu().numpy()
+            total_loss += float(loss.data.cpu().numpy())
             loss.backward()
             end = time.time()
             calc_time += (end - start)
@@ -124,11 +124,15 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
 
         if num % 10 == 0:
             denoised_imgs, test_psnr = denoise_test(model, testloader, device)
+            psnr_dict = {'test_psnr': test_psnr}
+            data_dict.update(psnr_dict)
             append_csv_from_dict(experimental_dir, csv_name, data_dict)
             epoch_dir = os.path.join(experimental_dir, str(num))
             save_torch_model(epoch_dir, MODEL_PATH, model)
 
             for num, denoised in enumerate(denoised_imgs):
+                if num >= save_max:
+                    break
                 denoised_name = os.path.join(epoch_dir, 'denoised_{}.png'.format(num))
                 denoised.save(denoised_name)
     epoch_dir = os.path.join(experimental_dir, str(epoch))
@@ -136,13 +140,13 @@ def train(experimental_name, base_dir, epoch, dev, load_model=None):
     return model_path
 
 
-def train_mix_dataset(experimental_name, base_dir, epoch, times, dev):
+def train_mix_dataset(experimental_name, base_dir, epoch, times, dev, training_p, test_p, batch_size, filter_size, save_max):
     last_model_path = ''
     for num in range(times):
         if num == 0:
-            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev)
+            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None)
         else:
-            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, last_model_path)
+            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=last_model_path)
 
 
 if __name__ == '__main__':

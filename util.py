@@ -6,6 +6,8 @@ from PIL import Image
 import torch
 import torch.nn as nn
 import pandas as pd
+import zipfile
+import io
 
 
 class MyModel(nn.Module):
@@ -37,6 +39,19 @@ def load_orgimgs(path='./BSDS200/', shape=None):
 
         imgs.append(img_bin)
 
+    return imgs
+
+
+def load_orgimgs_from_zip(file_path):
+    imgs = []
+    with zipfile.ZipFile(file_path, 'r') as zip_file:
+        infos = zip_file.infolist()
+
+        for info in infos:
+            file_bin = zip_file.read(info.filename)
+            img = Image.open(io.BytesIO(file_bin))
+            # img.show()
+            imgs.append(img)
     return imgs
 
 
@@ -118,7 +133,7 @@ def append_csv_from_dict(dir, csv_path, dict_data):
         print('make {} dir'.format(dir))
         os.mkdir(dir)
     csv_path = os.path.join(dir, csv_path)
-    columns = ['num_epoch', 'training_loss', 'test_loss']
+    columns = ['num_epoch', 'training_loss', 'test_loss', 'test_psnr']
     append_col = []
 
     for column in columns:
@@ -177,7 +192,17 @@ def generate_denoising_testset(org_dir, save_dir, noise_p, shape):
 
 
 if __name__ == '__main__':
-    generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
+    start = time.time()
+    load_orgimgs()
+    end = time.time()
+    print('not zip time: {}'.format(end - start))
+
+    start = time.time()
+    load_orgimgs_from_zip('BSDS200.zip')
+    end = time.time()
+    print('zip time: {}'.format(end - start))
+    # open_zip('Urban100_test.zip')
+    # generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
     # start = time.time()
     # imgs = load_orgimgs()
     # for img in imgs:
