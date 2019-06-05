@@ -1,4 +1,4 @@
-from dncnn import DnCNN, DenoisingDatasets, ImageDatasets
+from dncnn import DnCNN, DenoisingDatasets, ImageDatasets, HRLNet
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 import torch.nn as nn
@@ -13,13 +13,12 @@ import math
 
 
 def evaluate(model, test_set, device):
-    criterion = nn.MSELoss()
     sum_loss = 0
     for num, (image, org) in enumerate(test_set):
         image = image.to(device)
         org = org.to(device)
-        output = model(image)
-        loss = criterion(output, image.sub(org))
+        loss = model.loss(image, org)
+        # print(num)
         sum_loss += loss.data.cpu().numpy()
 
     return sum_loss / len(test_set)
@@ -65,14 +64,14 @@ def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_siz
     if load_model:
         model = DnCNN(filter_size=filter_size)
         model.load_state_dict(torch.load(load_model))
-        model = model.to(device)
         print('load model {}.'.format(load_model))
     else:
         print('Not found load model.')
-        model = DnCNN(filter_size=filter_size).to(device)
+        model = HRLNet(filter_size=filter_size)
+        # model = DnCNN(filter_size=filter_size)
 
+    model = model.to(device)
     optimizer = Adam(model.parameters())
-    criterion = nn.MSELoss()
     experimental_dir = os.path.join(base_dir, experimental_name)
     
     if not os.path.isdir(experimental_dir):
@@ -104,8 +103,7 @@ def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_siz
 
             optimizer.zero_grad()
             start = time.time()
-            output = model(image)
-            loss = criterion(output, image.sub(label))
+            loss = model.loss(image, label)
             total_loss += float(loss.data.cpu().numpy())
             loss.backward()
             end = time.time()
@@ -115,6 +113,7 @@ def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_siz
             total_loss /= len(dataloader)
             calc_time /= len(dataloader)
             test_loss = evaluate(model, testloader, device)
+            # print(test_loss)
         
         data_dict = {'num_epoch': num,
                      'training_loss': total_loss,
@@ -150,5 +149,5 @@ def train_mix_dataset(experimental_name, base_dir, epoch, times, dev, training_p
 
 
 if __name__ == '__main__':
-    train('test', './', 10, 'cuda')
+    train('HRLNet_test', './', 10, 'cuda', [0.1], [0.1], 10, 3, 10)
     pass

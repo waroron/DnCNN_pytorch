@@ -71,6 +71,13 @@ class DnCNN(DenoisingModel):
         x = self.last(x)
         return x
 
+    def loss(self, x, y):
+        output = self.forward(x)
+        criterion = nn.MSELoss()
+        loss = criterion(output, x.sub(y))
+
+        return loss
+
     def denoise(self, noised_img):
         """
         get normalized and corrupted image, output denoised image of type Tensor
@@ -79,6 +86,107 @@ class DnCNN(DenoisingModel):
         :return:
         """
         output = self.forward(noised_img)
+        tmp = F.relu(noised_img - output)
+        return tmp
+
+
+class HRLNet(DenoisingModel):
+    """
+
+    """
+    def __init__(self, filter_size=3):
+        super(HRLNet, self).__init__()
+        same_padding = int((filter_size - 1) / 2.0)
+
+        # Feature Extraction Net
+        # Conv(f1, d1, c1)
+        self.first_dim = 80
+        self.first = nn.Conv2d(3, self.first_dim, filter_size, padding=same_padding)
+
+        # Inference Net
+        # Conv(fn, dn, cn), m
+        self.n_inference_subnet = 4
+        self.m = 4
+        subnets = nn.ModuleList([])
+        inferences = nn.ModuleList([])
+
+        # 初回のinference layerの入力次元数はfeature extraction layerの出力次元数
+        conv_layers, inference = self.inference_layer(f=3, d=64, m=self.m, c=self.first_dim)
+        subnets.extend(conv_layers)
+        inferences.append(inference)
+
+        for _ in range(self.n_inference_subnet - 1):
+            conv_layers, inference = self.inference_layer(f=3, d=64, m=self.m, c=64)
+            subnets.extend(conv_layers)
+            inferences.append(inference)
+
+        # layerをただリストにするだけだとよくないみたい
+        # --> Sequentialを使う or ModuleListを使う
+        self.inference_subnets = subnets
+        self.each_inferenced_map = inferences
+
+        # Fusion Net
+        self.fusion = nn.Conv2d(self.n_inference_subnet, 3, 1)
+
+    def inference_layer(self, f, d, c, m):
+        same_padding = int((f - 1) / 2.0)
+        conv_layers = nn.ModuleList([])
+
+        conv = nn.Conv2d(c, d, f, padding=same_padding)
+        conv_layers.append(conv)
+        for _ in range(m - 1):
+            conv = nn.Conv2d(d, d, f, padding=same_padding)
+            conv_layers.append(conv)
+
+        inference = nn.Conv2d(d, 3, 3, padding=same_padding)
+
+        return conv_layers, inference
+
+    def forward(self, x):
+        # Feature extraction
+        x = F.relu(self.first(x))
+        inferences = []
+        list_inferences = []
+
+        # inference
+        for n_s in range(self.n_inference_subnet):
+            for n_m in range(self.m):
+                count = n_s * self.n_inference_subnet + n_m
+                # print(count)
+                x = F.relu(self.inference_subnets[count](x))
+                # print(x.size())
+            inference = F.relu(self.each_inferenced_map[n_s](x))
+            inferences.append(inference[:, 0])
+            list_inferences.append(inference)
+
+        # Concat and Fusion
+        concat_inferences = torch.stack(inferences, 1)
+        output = self.fusion(concat_inferences)
+
+        return output, inferences, list_inferences
+
+    def loss(self, x, y):
+        # alpha: importance of corresponding loss functions
+        alpha = 1
+
+        output, inferences, list_inferences = self.forward(x)
+        criterion = nn.MSELoss()
+        loss = criterion(output, x.sub(y))
+
+        for inference in list_inferences:
+            # print(inference.size())
+            loss = loss.add(criterion(inference, x.sub(y)))
+
+        return loss
+
+    def denoise(self, noised_img):
+        """
+        get normalized and corrupted image, output denoised image of type Tensor
+        It is necessary to convert Tensor to PIL with ToPILImage for enable to show the denoised image.
+        :param noised_img:
+        :return:
+        """
+        output, _, __ = self.forward(noised_img)
         tmp = F.relu(noised_img - output)
         return tmp
 
