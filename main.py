@@ -10,6 +10,7 @@ import time
 import numpy as np
 from PIL import ImageChops, ImageStat
 import math
+from torchsummary import summary
 
 
 def evaluate(model, test_set, device):
@@ -71,6 +72,7 @@ def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_siz
         # model = DnCNN(filter_size=filter_size)
 
     model = model.to(device)
+    summary(model, (3, 180, 180))
     optimizer = Adam(model.parameters())
     experimental_dir = os.path.join(base_dir, experimental_name)
     
@@ -111,7 +113,6 @@ def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_siz
             optimizer.step()
 
             total_loss /= len(dataloader)
-            calc_time /= len(dataloader)
             test_loss = evaluate(model, testloader, device)
             # print(test_loss)
         
