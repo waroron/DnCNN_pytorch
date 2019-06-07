@@ -219,6 +219,52 @@ def generate_denoising_testset(org_dir, save_dir, noise_p, shape):
         print('{} saved'.format(csv_path))
 
 
+def generate_SISR_testset(org_dir, save_dir, upscale_list, shape):
+    orgimgs_set = load_orgimgs(path=org_dir, shape=shape)
+    save_org_dir = os.path.join(save_dir, 'org')
+
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+        print('make dir {}'.format(save_dir))
+
+    if not os.path.isdir(save_org_dir):
+        os.mkdir(save_org_dir)
+        print('make dir {}'.format(save_org_dir))
+
+    for scale in upscale_list:
+        score_list = []
+        columns = ['MSE', 'PSNR']
+        index = []
+        save_noise_dir = os.path.join(save_dir, 'scale_{}'.format(scale))
+
+        if not os.path.isdir(save_noise_dir):
+            os.mkdir(save_noise_dir)
+            print('make dir {}'.format(save_noise_dir))
+
+        for num, org in enumerate(orgimgs_set):
+                org_path = os.path.join(save_org_dir, 'img_{}.png'.format(num))
+                sr_path = os.path.join(save_noise_dir, 'img_{}.png'.format(num))
+                index.append('img_{}'.format(num))
+
+                tmp = org.resize((int(shape[0] / scale), int(shape[1] / scale)))
+                sr_img = tmp.resize(shape, Image.BICUBIC)
+
+                mse = get_mse(org, sr_img)
+                psnr = get_psnr(org, sr_img)
+
+                score_list.append([mse, psnr])
+
+                if not os.path.isfile(org_path):
+                    org.save(org_path)
+                sr_img.save(sr_path)
+
+                print('save {}'.format(org_path))
+        csv_path = os.path.join(save_noise_dir, 'evaluation_score.csv')
+        df = pd.DataFrame(score_list, index=index, columns=columns)
+        df.to_csv(csv_path)
+        print('{} saved'.format(csv_path))
+
+
 if __name__ == '__main__':
     # start = time.time()
     # load_orgimgs()
@@ -230,7 +276,8 @@ if __name__ == '__main__':
     # end = time.time()
     # print('zip time: {}'.format(end - start))
     # open_zip('Urban100_test.zip')
-    generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
+    generate_SISR_testset('Urban100', 'Urban100_test', [2, 4, 8], (180, 180))
+    # generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
     # start = time.time()
     # imgs = load_orgimgs()
     # for img in imgs:

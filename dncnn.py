@@ -248,7 +248,47 @@ class DenoisingDatasets(Dataset):
         return noised_img, org_img
 
 
-class ImageDatasets(Dataset):
+class SISRDatasets(Dataset):
+    def __init__(self, dir, upscale_list, data_transform, shape=(180, 180), num_crop=2):
+        self.num_crop = num_crop
+        self.img_height = shape[0]
+        self.img_width = shape[1]
+        self.data_transform = data_transform
+        self.upscale_list = upscale_list
+        imgs = get_crop_datasets(path=dir, width=self.img_width, height=self.img_height, times=self.num_crop)
+
+        sr_set = []
+        org_set = []
+        for img in imgs:
+            for scale in self.upscale_list:
+                org_set.append(self.data_transform(img))
+                tmp = img.resize((int(shape[0] / scale), int(shape[1] / scale)))
+                sr_img = tmp.resize(shape, Image.BICUBIC)
+                sr_set.append(self.data_transform(sr_img))
+
+        # convert cv2 image to Pillow img
+        # org_imgs = []
+        # for img in imgs:
+        #     org_imgs.append(self.data_transform(img))
+
+        self.org = org_set
+        self.sr_imgs = sr_set
+
+    def __len__(self):
+        return len(self.org)
+
+    def __getitem__(self, i):
+        # if self.data_transform:
+        #     noised_img = self.data_transform(self.df[i])
+        # else:
+        #     noised_img = self.df[i]
+        org_img = self.org[i]
+        sr_img = self.sr_imgs[i]
+
+        return sr_img, org_img
+
+
+class DenoisingTestsets(Dataset):
     """
     util内のgenerate_testsetみたいのを使ってることを想定
     testset
@@ -295,5 +335,56 @@ class ImageDatasets(Dataset):
         #     noised_img = self.df[i]
         org_img = self.org[i]
         noised_img = self.noised[i]
+
+        return noised_img, org_img
+
+
+class SISRTestsets(Dataset):
+    """
+    util内のgenerate_testsetみたいのを使ってることを想定
+    testset
+        - /org/  : 原画像
+        - /p_0.1/ : 0.1のRVINが重畳
+
+        みたいな感じで保存されているはず
+    """
+    def __init__(self, dir, data_transform, upscale_list, shape=None):
+        self.dir = dir
+        self.org_dir = os.path.join(dir, 'org')
+        self.upscale_list = upscale_list
+        self.data_transform = data_transform
+
+        sr_set, org_set = self.load_sr_datasets()
+
+        self.org = org_set
+        self.sr_set = sr_set
+
+    def load_sr_datasets(self):
+        num_imgs = len(os.listdir(self.org_dir))
+        org_set = []
+        noised_set = []
+        for num in range(num_imgs):
+            org_path = os.path.join(self.org_dir, 'img_{}.png'.format(num))
+            org_img = self.data_transform(Image.open(org_path))
+
+            for scale in self.upscale_list:
+                noise_path = os.path.join(self.dir, 'scale_{}'.format(scale), 'img_{}.png'.format(num))
+                noised_img = self.data_transform(Image.open(noise_path))
+
+                org_set.append(org_img)
+                noised_set.append(noised_img)
+
+        return noised_set, org_set
+
+    def __len__(self):
+        return len(self.org)
+
+    def __getitem__(self, i):
+        # if self.data_transform:
+        #     noised_img = self.data_transform(self.df[i])
+        # else:
+        #     noised_img = self.df[i]
+        org_img = self.org[i]
+        noised_img = self.sr_set[i]
 
         return noised_img, org_img
