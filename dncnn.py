@@ -76,7 +76,7 @@ class DnCNN(DenoisingModel):
         nn.init.kaiming_normal_(self.first.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
         for num in range(self.depth):
             nn.init.kaiming_normal_(self.hidden_conv[num].weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
-            nn.init.kaiming_normal_(self.hidden_bn[num].weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+            # nn.init.kaiming_normal_(self.hidden_bn[num].weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
         nn.init.kaiming_normal_(self.last.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
     def loss(self, x, y):
@@ -171,7 +171,7 @@ class HRLNet(DenoisingModel):
                 # print(count)
                 x = F.relu(self.inference_subnets[count](x))
                 # print(x.size())
-            inference = F.relu(self.each_inferenced_map[n_s](x))
+            inference = self.each_inferenced_map[n_s](x)
             inferences.append(inference[:, 0])
             list_inferences.append(inference)
 
@@ -183,15 +183,16 @@ class HRLNet(DenoisingModel):
 
     def loss(self, x, y):
         # alpha: importance of corresponding loss functions
-        alpha = 1
+        alpha_list = np.arange(0.1, 1.0, 1.0 / (self.n_inference_subnet + 1))
 
         output, inferences, list_inferences = self.forward(x)
         criterion = nn.MSELoss()
-        loss = criterion(output, x.sub(y))
+        loss = alpha_list[-1] * criterion(output, x.sub(y))
 
-        for inference in list_inferences:
+        for n in range(self.n_inference_subnet):
             # print(inference.size())
-            loss = loss.add(criterion(inference, x.sub(y)))
+            subnet_loss = alpha_list[-(n + 1)] * criterion(list_inferences[n], x.sub(y))
+            loss = loss.add(subnet_loss)
 
         return loss
 

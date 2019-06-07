@@ -50,7 +50,23 @@ def denoise_test(model, test_set, device):
     return denoised_fig, sum_loss / len(denoised_fig)
 
 
-def train(model, experimental_name, base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None):
+def train_denoising_model(model, experimental_name, base_dir, epoch, dev, training_p, test_p,
+          batch_size, filter_size, save_max, load_model=None):
+    """
+    Training method for denoising neural net model
+    :param model:
+    :param experimental_name:
+    :param base_dir:
+    :param epoch:
+    :param dev:
+    :param training_p:
+    :param test_p:
+    :param batch_size:
+    :param filter_size:
+    :param save_max:
+    :param load_model:
+    :return:
+    """
     MODEL_PATH = 'model.pth'
     DATASET = 'BSDS200/'
     TESTSET = 'Urban100_test/'
@@ -100,29 +116,29 @@ def train(model, experimental_name, base_dir, epoch, dev, training_p, test_p, ba
         total_loss = 0
         calc_time = 0
         test_loss = 0
+        start = time.time()
         for batch_idx, (image, label) in enumerate(dataloader):
             image = image.to(device)
             label = label.to(device)
 
             optimizer.zero_grad()
-            start = time.time()
             loss = model.loss(image, label)
             total_loss += float(loss.data.cpu().numpy())
             loss.backward()
-            end = time.time()
-            calc_time += (end - start)
             optimizer.step()
 
             total_loss /= len(dataloader)
             test_loss = evaluate(model, testloader, device)
-            # print(test_loss)
-        
+
+        end = time.time()
+        calc_time += (end - start)
         data_dict = {'num_epoch': num,
                      'training_loss': total_loss,
                      'test_loss': test_loss}
         print('Train Epoch: {} \tLoss: {:.6f} \tTest Loss: {:.6f} \tCalculation Time: {:.4f}sec'.format(
             num, total_loss, test_loss, calc_time))
 
+        # denoising evaluation via testset
         if num % 10 == 0:
             denoised_imgs, test_psnr = denoise_test(model, testloader, device)
             psnr_dict = {'test_psnr': test_psnr}
@@ -145,11 +161,11 @@ def train_mix_dataset(experimental_name, base_dir, epoch, times, dev, training_p
     last_model_path = ''
     for num in range(times):
         if num == 0:
-            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None)
+            last_model_path = train_denoising_model(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None)
         else:
-            last_model_path = train(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=last_model_path)
+            last_model_path = train_denoising_model(experimental_name + 'part{}'.format(num + 1), base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=last_model_path)
 
 
 if __name__ == '__main__':
-    train('HRLNet_test', './', 10, 'cuda', [0.1], [0.1], 10, 3, 10)
-    pass
+    model = HRLNet()
+    train_denoising_model(model, 'DnCNN-S', './', 150, 'cuda', [0.1, 0.2], [0.1], 10, 5, 30)
