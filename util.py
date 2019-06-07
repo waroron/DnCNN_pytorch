@@ -2,12 +2,14 @@ import cv2
 import os
 import numpy as np
 import time
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
+import math
 import torch
 import torch.nn as nn
 import pandas as pd
 import zipfile
 import io
+from skimage.measure import compare_mse, compare_psnr, compare_ssim
 
 
 class MyModel(nn.Module):
@@ -30,6 +32,7 @@ def load_orgimgs(path='./BSDS200/', shape=None):
 
     imgs_name = os.listdir(path)
     imgs = []
+
     for img_name in imgs_name:
         img_path = os.path.join(path, img_name)
         img_bin = Image.open(img_path)
@@ -78,6 +81,18 @@ def pil2cv(image):
     elif new_image.shape[2] == 4:  # 透過
         new_image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGRA)
     return new_image
+
+
+def get_mse(img1, img2):
+    diff_img = ImageChops.difference(img1, img2)
+    stat = ImageStat.Stat(diff_img)
+    mse = sum(stat.sum2) / len(stat.count) / stat.count[0]
+    return mse
+
+
+def get_psnr(img1, img2):
+    mse = get_mse(img1, img2)
+    return 10 * math.log10(255 ** 2 / mse)
 
 
 def get_crop_datasets(path='./BSDS200/', width=180, height=180, times=2):
@@ -172,6 +187,9 @@ def generate_denoising_testset(org_dir, save_dir, noise_p, shape):
         print('make dir {}'.format(save_org_dir))
 
     for p in noise_p:
+        score_list = []
+        columns = ['MSE', 'PSNR']
+        index = []
         save_noise_dir = os.path.join(save_dir, 'p_{}'.format(p))
 
         if not os.path.isdir(save_noise_dir):
@@ -181,28 +199,38 @@ def generate_denoising_testset(org_dir, save_dir, noise_p, shape):
         for num, org in enumerate(orgimgs_set):
                 org_path = os.path.join(save_org_dir, 'img_{}.png'.format(num))
                 noise_path = os.path.join(save_noise_dir, 'img_{}.png'.format(num))
+                index.append('img_{}'.format(num))
 
                 noised_img, _ = noised_RVIN(org, noised_p=[p])
+
+                mse = get_mse(org, noised_img[0])
+                psnr = get_psnr(org, noised_img[0])
+
+                score_list.append([mse, psnr])
 
                 if not os.path.isfile(org_path):
                     org.save(org_path)
                 noised_img[0].save(noise_path)
 
                 print('save {}'.format(org_path))
+        csv_path = os.path.join(save_noise_dir, 'evaluation_score.csv')
+        df = pd.DataFrame(score_list, index=index, columns=columns)
+        df.to_csv(csv_path)
+        print('{} saved'.format(csv_path))
 
 
 if __name__ == '__main__':
-    start = time.time()
-    load_orgimgs()
-    end = time.time()
-    print('not zip time: {}'.format(end - start))
-
-    start = time.time()
-    load_orgimgs_from_zip('BSDS200.zip')
-    end = time.time()
-    print('zip time: {}'.format(end - start))
+    # start = time.time()
+    # load_orgimgs()
+    # end = time.time()
+    # print('not zip time: {}'.format(end - start))
+    #
+    # start = time.time()
+    # load_orgimgs_from_zip('BSDS200.zip')
+    # end = time.time()
+    # print('zip time: {}'.format(end - start))
     # open_zip('Urban100_test.zip')
-    # generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
+    generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
     # start = time.time()
     # imgs = load_orgimgs()
     # for img in imgs:

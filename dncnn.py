@@ -55,21 +55,29 @@ class DnCNN(DenoisingModel):
     """
     def __init__(self, filter_size=3):
         super(DnCNN, self).__init__()
+        self.depth = 15     # DnCNN-S
         same_padding = int((filter_size - 1) / 2.0)
         self.first = nn.Conv2d(3, 64, filter_size, padding=same_padding)
-        self.hidden_conv = nn.ModuleList([nn.Conv2d(64, 64, filter_size, padding=same_padding) for n in range(15)])
+        self.hidden_conv = nn.ModuleList([nn.Conv2d(64, 64, filter_size, padding=same_padding) for n in range(self.depth)])
         self.hidden_bn = nn.ModuleList([nn.BatchNorm2d(64) for n in range(15)])
         self.last = nn.Conv2d(64, 3, filter_size, padding=same_padding)
 
     def forward(self, x):
         x = F.relu(self.first(x))
-        for num in range(15):
+        for num in range(self.depth):
             _conv = self.hidden_conv[num](x)
             _bn = self.hidden_bn[num](x)
             x = F.relu(_bn)
 
         x = self.last(x)
         return x
+
+    def init_params(self):
+        nn.init.kaiming_normal_(self.first.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+        for num in range(self.depth):
+            nn.init.kaiming_normal_(self.hidden_conv[num].weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+            nn.init.kaiming_normal_(self.hidden_bn[num].weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+        nn.init.kaiming_normal_(self.last.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
     def loss(self, x, y):
         output = self.forward(x)
@@ -94,7 +102,7 @@ class HRLNet(DenoisingModel):
     """
 
     """
-    def __init__(self, filter_size=3):
+    def __init__(self, filter_size=3, n_inference_subnet=4, m=5):
         super(HRLNet, self).__init__()
         same_padding = int((filter_size - 1) / 2.0)
 
@@ -105,8 +113,8 @@ class HRLNet(DenoisingModel):
 
         # Inference Net
         # Conv(fn, dn, cn), m
-        self.n_inference_subnet = 4
-        self.m = 4
+        self.n_inference_subnet = n_inference_subnet
+        self.m = m
         subnets = nn.ModuleList([])
         inferences = nn.ModuleList([])
 
@@ -127,6 +135,14 @@ class HRLNet(DenoisingModel):
 
         # Fusion Net
         self.fusion = nn.Conv2d(self.n_inference_subnet, 3, 1)
+
+    def init_params(self):
+        nn.init.kaiming_normal_(self.first.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+        for inference_net in self.inference_subnets:
+            nn.init.kaiming_normal_(inference_net.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
+
+        for inference_net in self.each_inferenced_map:
+            nn.init.kaiming_normal_(inference_net.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
     def inference_layer(self, f, d, c, m):
         same_padding = int((f - 1) / 2.0)

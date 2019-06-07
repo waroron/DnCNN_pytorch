@@ -50,7 +50,7 @@ def denoise_test(model, test_set, device):
     return denoised_fig, sum_loss / len(denoised_fig)
 
 
-def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None):
+def train(model, experimental_name, base_dir, epoch, dev, training_p, test_p, batch_size, filter_size, save_max, load_model=None):
     MODEL_PATH = 'model.pth'
     DATASET = 'BSDS200/'
     TESTSET = 'Urban100_test/'
@@ -63,12 +63,13 @@ def train(experimental_name, base_dir, epoch, dev, training_p, test_p, batch_siz
     device = torch.device(dev if torch.cuda.is_available() else "cpu")
     print(device)
     if load_model:
-        model = DnCNN(filter_size=filter_size)
+        # model = DnCNN(filter_size=filter_size)
         model.load_state_dict(torch.load(load_model))
         print('load model {}.'.format(load_model))
     else:
         print('Not found load model.')
-        model = HRLNet(filter_size=filter_size)
+        # model = HRLNet(filter_size=filter_size)
+        model.init_params()
         # model = DnCNN(filter_size=filter_size)
 
     model = model.to(device)
