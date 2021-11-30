@@ -53,7 +53,7 @@ class DnCNN(DenoisingModel):
         DnCNN-S model depth is set as 17.
 
     """
-    def __init__(self, filter_size=3):
+    def __init__(self, filter_size=3, edge_regularization=False, coef_edge=0.3):
         super(DnCNN, self).__init__()
         self.depth = 15     # DnCNN-S
         same_padding = int((filter_size - 1) / 2.0)
@@ -61,6 +61,10 @@ class DnCNN(DenoisingModel):
         self.hidden_conv = nn.ModuleList([nn.Conv2d(64, 64, filter_size, padding=same_padding) for n in range(self.depth)])
         self.hidden_bn = nn.ModuleList([nn.BatchNorm2d(64) for n in range(15)])
         self.last = nn.Conv2d(64, 3, filter_size, padding=same_padding)
+
+        if self.edge_regularizer:
+            self.coef_edge = coef_edge
+            self.edge_detector = GradLayer()
 
     def forward(self, x):
         x = F.relu(self.first(x))
@@ -83,6 +87,11 @@ class DnCNN(DenoisingModel):
         output = self.forward(x)
         criterion = nn.MSELoss()
         loss = criterion(output, x.sub(y))
+        
+        if self.edge_regularizer:
+            edge_img = self.edge_detector(x)
+            edge_denoised_img = self.edge_detector(y)
+            loss += self.coef_edge * criterion(edge_img, edge_denoised_img)
 
         return loss
 
