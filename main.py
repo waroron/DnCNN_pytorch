@@ -69,7 +69,7 @@ def train_denoising_model(model, experimental_name, base_dir, epoch, dev, traini
     """
     MODEL_PATH = 'model.pth'
     DATASET = 'BSDS200/'
-    TESTSET = 'Urban100_test/'
+    TESTSET = 'Set14_test/'
     csv_name = 'epoch_data.csv'
     dataset_dir = os.path.join(base_dir, DATASET)
     testset_dir = os.path.join(base_dir, TESTSET)
@@ -287,6 +287,7 @@ def train_mix_dataset(experimental_name, base_dir, epoch, times, dev, training_p
 
 
 if __name__ == '__main__':
-    model = HRLNet()
+    model = HRLNet(edge_regularization=False, coef_edge=0.0)
     # train_denoising_model(model, 'DnCNN-S', './', 150, 'cuda', [0.1, 0.2], [0.1], 10, 5, 30)
-    train_SISR_model(model, 'HRLNet_forSISR', './', 150, 'cuda', [2, 4], [2], 10, 5, 30)
+    train_denoising_model(model, 'DnCNN-S-3', './', 150, 'cuda', [0.1, 0.3, 0.5], [0.1, 0.2, 0.3], 10, 5, 30)
+    # train_SISR_model(model, 'HRLNet_forSISR', './', 150, 'cuda', [2, 4], [2], 10, 5, 30)

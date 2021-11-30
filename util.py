@@ -9,8 +9,8 @@ import torch.nn as nn
 import pandas as pd
 import zipfile
 import io
-from skimage.measure import compare_mse, compare_psnr, compare_ssim
-
+# from skimage.measure import compare_psnr, compare_ssim
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 class MyModel(nn.Module):
     def __init__(self):
@@ -276,8 +276,8 @@ if __name__ == '__main__':
     # end = time.time()
     # print('zip time: {}'.format(end - start))
     # open_zip('Urban100_test.zip')
-    generate_SISR_testset('Urban100', 'Urban100_test', [2, 4, 8], (180, 180))
-    # generate_denoising_testset('Urban100', 'Urban100_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
+    # generate_SISR_testset('Urban100', 'Urban100_test', [2, 4, 8], (180, 180))
+    generate_denoising_testset('Set14_2', 'Set14_test', [0.05, 0.1, 0.2, 0.3, 0.5], [180, 180])
     # start = time.time()
     # imgs = load_orgimgs()
     # for img in imgs:
